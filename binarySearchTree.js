@@ -7,251 +7,207 @@ class Node {
 }
 
 class Tree {
-	root = null;
+	root;
 
 	constructor(array) {
-		const cleanedArray = this.cleanArray(array);
-		this.root = this.buildTree(cleanedArray, 0, cleanedArray.length - 1);
-	}
-
-	cleanArray(array) {
-		return Array.from(new Set(array)).sort((a, b) => a - b);
+		const cleanArray = Array.from(new Set(array)).sort((a, b) => a - b);
+		this.root = this.buildTree(cleanArray, 0, cleanArray.length - 1);
 	}
 
 	buildTree(array, start, end) {
 		if (start > end) return null;
 
 		const mid = Math.floor((start + end) / 2);
-		const root = new Node(array[mid]);
+		const newNode = new Node(array[mid]);
+		newNode.left = this.buildTree(array, start, mid - 1);
+		newNode.right = this.buildTree(array, mid + 1, end);
 
-		root.left = this.buildTree(array, start, mid - 1);
-		root.right = this.buildTree(array, mid + 1, end);
-
-		return root;
-	}
-
-	prettyPrint(node = this.root, prefix = "", isLeft = true) {
-		if (node === null) {
-			return;
-		}
-		if (node.right !== null) {
-			this.prettyPrint(
-				node.right,
-				`${prefix}${isLeft ? "│   " : "    "}`,
-				false,
-			);
-		}
-		console.log(`${prefix}${isLeft ? "└── " : "┌── "}${node.data}`);
-		if (node.left !== null) {
-			this.prettyPrint(node.left, `${prefix}${isLeft ? "    " : "│   "}`, true);
-		}
+		return newNode;
 	}
 
 	insert(value) {
 		if (this.root === null) this.root = new Node(value);
-		else this.root = this._insert(value, this.root);
+		else this._insert(this.root, value);
 	}
 
-	_insert(value, root) {
-		if (root === null) return new Node(value);
+	_insert(node, value) {
+		if (node === null) return new Node(value);
 
-		if (value < root.data) root.left = this._insert(value, root.left);
-		else if (value > root.data) root.right = this._insert(value, root.right);
+		if (value < node.data) node.left = this._insert(node.left, value);
+		else if (value > node.data) node.right = this._insert(node.right, value);
 
-		return root;
+		return node;
 	}
 
-	delete(value) {
-		this.root = this._delete(value, this.root);
+	deleteItem(value) {
+		this.root = this._deleteItem(this.root, value);
 	}
 
-	_delete(value, root) {
-		if (root === null) return root;
+	_deleteItem(node, value) {
+		if (node === null) return null;
 
-		if (value < root.data) {
-			root.left = this._delete(value, root.left);
-		} else if (value > root.data) {
-			root.right = this._delete(value, root.right);
-		} else {
-			if (root.left === null) return root.right;
-			if (root.right === null) return root.left;
+		if (value < node.data) node.left = this._deleteItem(node.left, value);
+		else if (value > node.data)
+			node.right = this._deleteItem(node.right, value);
+		else if (value === node.data) {
+			// Leaf node
+			if (node.left === null && node.right === null) return null;
 
-			root.data = this.minValue(root.right);
+			// Single child node
+			if (node.left === null) return node.right;
+			if (node.right === null) return node.left;
 
-			root.right = this._delete(root.data, root.right);
+			// Two child node
+			if (node.left && node.right) {
+				const inorderSuccessor = this._minRightSubtreeNode(node.right);
+				node.data = inorderSuccessor.data;
+				node.right = this._deleteItem(node.right, inorderSuccessor.data);
+			}
 		}
 
-		return root;
+		return node;
 	}
 
-	minValue(node) {
+	_minRightSubtreeNode(node) {
 		let current = node;
-		while (current.left !== null) {
-			current = current.left;
-		}
-		return current.data;
+		while (current.left !== null) current = current.left;
+		return current;
 	}
 
-	find(value) {
-		return this._find(value, this.root);
-	}
+	find(value, node = this.root) {
+		if (node === null) return null;
 
-	_find(value, root) {
-		if (root === null) return null;
+		if (value === node.data) return node;
 
-		if (value === root.data) return root;
-
-		return value < root.data
-			? this._find(value, root.left)
-			: this._find(value, root.right);
+		return value < node.data
+			? this.find(value, node.left)
+			: this.find(value, node.right);
 	}
 
 	levelOrder(callback) {
 		const array = this._levelOrder(this.root);
 
-		if (typeof callback === "function") {
-			for (const e of array) {
-				callback(e);
-			}
-		} else {
-			return array;
+		if (typeof callback !== "function")
+			throw new Error("A callback function is required");
+
+		for (const e of array) {
+			callback(e);
 		}
 	}
 
-	_levelOrder(root) {
-		if (root === null) {
-			return [];
-		}
-
-		const queue = [root];
+	_levelOrder(node) {
 		const array = [];
+		const queue = [node];
 
 		while (queue.length > 0) {
-			const node = queue.shift();
-			array.push(node.data);
+			const temp = queue.shift();
 
-			if (node.left !== null) {
-				queue.push(node.left);
-			}
-
-			if (node.right !== null) {
-				queue.push(node.right);
-			}
+			array.push(temp.data);
+			if (temp.left !== null) queue.push(temp.left);
+			if (temp.right !== null) queue.push(temp.right);
 		}
 
 		return array;
 	}
 
 	inOrder(callback) {
-		const result = [];
-		this._inOrder(this.root, result);
+		const array = [];
+		this._inOrder(this.root, array);
 
-		if (typeof callback === "function") {
-			for (const e of result) {
-				callback(e);
-			}
-		} else {
-			return result;
+		if (typeof callback !== "function")
+			throw new Error("A callback function is required");
+
+		for (const e of array) {
+			callback(e);
 		}
 	}
 
-	_inOrder(root, result) {
-		if (root === null) return;
+	_inOrder(node, array) {
+		if (node === null) return null;
 
-		this._inOrder(root.left, result);
-		result.push(root.data);
-		this._inOrder(root.right, result);
+		this._inOrder(node.left, array);
+		array.push(node.data);
+		this._inOrder(node.right, array);
 	}
 
 	preOrder(callback) {
-		const result = [];
-		this._preOrder(this.root, result);
+		const array = [];
+		this._preOrder(this.root, array);
 
-		if (typeof callback === "function") {
-			for (const e of result) {
-				callback(e);
-			}
-		} else {
-			return result;
+		if (typeof callback !== "function")
+			throw new Error("A callback function is required");
+
+		for (const e of array) {
+			callback(e);
 		}
 	}
 
-	_preOrder(root, result) {
-		if (root === null) return;
+	_preOrder(node, array) {
+		if (node === null) return null;
 
-		result.push(root.data);
-		this._inOrder(root.left, result);
-		this._inOrder(root.right, result);
+		array.push(node.data);
+		this._preOrder(node.left, array);
+		this._preOrder(node.right, array);
 	}
 
 	postOrder(callback) {
-		const result = [];
-		this._postOrder(this.root, result);
+		const array = [];
+		this._postOrder(this.root, array);
 
-		if (typeof callback === "function") {
-			for (const e of result) {
-				callback(e);
-			}
-		} else {
-			return result;
+		if (typeof callback !== "function")
+			throw new Error("A callback function is required");
+
+		for (const e of array) {
+			callback(e);
 		}
 	}
 
-	_postOrder(root, result) {
-		if (root === null) return;
+	_postOrder(node, array) {
+		if (node === null) return null;
 
-		this._inOrder(root.left, result);
-		this._inOrder(root.right, result);
-		result.push(root.data);
+		this._postOrder(node.left, array);
+		this._postOrder(node.right, array);
+		array.push(node.data);
 	}
 
 	height(node) {
-		if (node === null) return -1;
-
-		const leftHeight = this.height(node.left);
-		const rightHeight = this.height(node.right);
-
-		return Math.max(leftHeight, rightHeight) + 1;
-	}
-
-	depth(node) {
-		return this._depth(node, this.root, 0);
-	}
-
-	_depth(node, current, depth) {
-		if (current === null) return -1;
-
-		if (current === node) return depth;
-
-		const leftDepth = this._depth(node, current.left, depth + 1);
-		if (leftDepth !== -1) return leftDepth;
-
-		return this._depth(node, current.right, depth + 1);
-	}
-
-	isBalanced() {
-		return this._isBalanced(this.root) !== -1;
-	}
-
-	_isBalanced(node) {
 		if (node === null) return 0;
 
-		const leftHeight = this._isBalanced(node.left);
-		if (leftHeight === -1) return -1;
+		return 1 + Math.max(this.height(node.left), this.height(node.right));
+	}
 
-		const rightHeight = this._isBalanced(node.right);
-		if (rightHeight === -1) return -1;
+	depth(node, curr = this.root, depth = 0) {
+		if (curr === null || node === null) return 0;
 
-		if (Math.abs(leftHeight - rightHeight) > 1) {
-			return -1;
-		}
+		if (curr === node) return depth;
 
-		return Math.max(leftHeight, rightHeight) + 1;
+		return node.data < curr.data
+			? this.depth(node, curr.left, depth + 1)
+			: this.depth(node, curr.right, depth + 1);
+	}
+
+	isBalanced(node = this.root) {
+		return this._checkBalance(node).balanced;
+	}
+
+	_checkBalance(node) {
+		if (node === null) return { balanced: true, height: 0 };
+
+		const left = this._checkBalance(node.left);
+		const right = this._checkBalance(node.right);
+
+		const balanced =
+			Math.abs(left.height - right.height) <= 1 &&
+			left.balanced &&
+			right.balanced;
+
+		return { balanced, height: 1 + Math.max(left.height, right.height) };
 	}
 
 	rebalance() {
-		const sortedArray = this.inOrder();
-		this.root = this.buildTree(sortedArray, 0, sortedArray.length - 1);
+		const array = [];
+		this._inOrder(this.root, array);
+		this.root = this.buildTree(array, 0, array.length - 1);
 	}
 }
 
